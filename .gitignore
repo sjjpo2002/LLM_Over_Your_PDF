@@ -1,0 +1,5 @@
+/.venv
+/.vscode
+/app2.py
+/scratchpad.py
+/__pycache__
