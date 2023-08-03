@@ -28,7 +28,7 @@ def get_pdf_text(pdfs):
 
 def get_text_chuncks(text):
     splitter = CharacterTextSplitter(
-        separator="\n", chunk_size=1000, chunk_overlap=200, length_function=len
+        separator="\n", chunk_size=500, chunk_overlap=50, length_function=len
     )
     chunks = splitter.split_text(text)
     return chunks
@@ -69,17 +69,16 @@ def get_similarity_from_hf_API(chunks):
     output = query(
         {
             "inputs": {
-                "source_sentence": "question about the book",
+                "source_sentence": "question about the PDF",
                 "sentences": ["chunk1", "chunk2", "chunk3"],
             },
         }
     )
 
 
-def get_convchain(vectorstore):
+def get_convchain(vectorstore, llm_choice):
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    # repo_id = "gpt2"
-    repo_id = "google/flan-t5-xxl"
+    repo_id = llm_choice
     llm = HuggingFaceHub(
         repo_id=repo_id,
         model_kwargs={"temperature": 0.5},
@@ -96,7 +95,6 @@ def handle_question(user_question):
     for i, message in enumerate(st.session_state.chat_history):
         if i % 2 == 0:
             st.write(
-                user_template.replace("{{place_holder}}", message.content),
                 unsafe_allow_html=True,
             )
         else:
@@ -109,7 +107,7 @@ def handle_question(user_question):
 def main():
     load_dotenv()
     st.set_page_config(
-        page_title="interact with your data through LLMs", page_icon=":book:"
+        page_title="interact with your data through LLMs", page_icon=":bird:"
     )
     st.write(css, unsafe_allow_html=True)
 
@@ -119,10 +117,13 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
 
-    st.header("ask questions about pdf books :book:")
+    st.header("interact with your data through LLMs :bird:")
+    llm_choice = st.selectbox(
+        "select which LLM to use:", ("google/flan-t5-xxl", "gpt2")
+    )
     user_question = st.text_input("ask your questions here")
-    st.write(user_template.replace("{{MSG}}", "Human"), unsafe_allow_html=True)
-    st.write(bot_template.replace("{{MSG}}", "Bot"), unsafe_allow_html=True)
+    st.write(user_template.replace("{{place_holder}}", "Human"), unsafe_allow_html=True)
+    st.write(bot_template.replace("{{place_holder}}", "Bot"), unsafe_allow_html=True)
 
     if user_question:
         handle_question(user_question)
@@ -130,17 +131,17 @@ def main():
     with st.sidebar:
         st.subheader("your docs")
         pdf_docs = st.file_uploader("upload your pdfs", accept_multiple_files=True)
+
         if st.button("process"):
             with st.spinner("in progress..."):
                 text_docs = get_pdf_text(pdf_docs)
-                st.write(text_docs)
 
                 chunks = get_text_chuncks(text_docs)
                 st.write(chunks)
 
                 vectorstore = get_vectors_from_sentence_transformer(chunks)
 
-                st.session_state.conv_chain = get_convchain(vectorstore)
+                st.session_state.conv_chain = get_convchain(vectorstore, llm_choice)
 
     hide_st_style = """
         <style>
